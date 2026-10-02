@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Time Series Forecast</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            900: '#1e3a8a',
+                        },
+                        surface: '#ffffff',
+                        background: '#f8fafc',
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'inner-soft': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.02)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            color: #0f172a;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        select, input {
+            transition: all 0.2s ease;
+        }
+        select:focus, input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none;
+        }
+
+        .btn-hover-effect {
+            transition: all 0.2s ease;
+        }
+        .btn-hover-effect:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+        .btn-hover-effect:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <header class="mb-8">
+            <h1 class="text-3xl font-semibold tracking-tight text-slate-900">
+                Predictive Analytics
+            </h1>
+            <p class="text-slate-500 mt-1 text-sm md:text-base">
+                Advanced time-series forecasting powered by historical asset data.
+            </p>
+        </header>
+
+        <div class="bg-surface rounded-2xl shadow-soft border border-slate-100 p-6 flex flex-col md:flex-row gap-6 items-end">
+            
+            <div class="w-full md:w-2/5 space-y-2">
+                <label for="assetSelect" class="block text-sm font-medium text-slate-700">Select Asset</label>
+                <div class="relative">
+                    <select id="assetSelect" class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl block p-3.5 appearance-none cursor-pointer">
+                        <option value="BTC">Bitcoin (BTC-USD)</option>
+                        <option value="ETH">Ethereum (ETH-USD)</option>
+                        <option value="SOL">Solana (SOL-USD)</option>
+                        <option value="GOOG">Alphabet Inc. (GOOG)</option>
+                        <option value="BFREN">Bosch Fren Sistemleri (BFREN.IS)</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full md:w-1/5 space-y-2">
+                <label for="forecastDays" class="block text-sm font-medium text-slate-700">Forecast Horizon (Days)</label>
+                <input type="number" id="forecastDays" min="1" max="365" value="30" class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl block p-3.5">
+            </div>
+
+            <div class="w-full md:w-2/5">
+                <button id="generateBtn" onclick="runForecast()" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-medium rounded-xl px-5 py-3.5 btn-hover-effect flex justify-center items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                    Generate Forecast
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-surface rounded-2xl shadow-soft border border-slate-100 p-6 relative w-full h-[60vh] flex flex-col">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                <div>
+                    <h2 id="chartTitle" class="text-lg font-semibold text-slate-800">Asset Projection Model</h2>
+                    <div class="flex items-center gap-3 mt-1">
+                        <p class="text-xs text-slate-500">95% Confidence Interval • Scroll to zoom, drag to pan</p>
+                        <span id="realtimeBadge" class="hidden text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 border border-green-200">
+                            🟢 Anlık: <span id="realtimeValue">—</span>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-6 mt-3 sm:mt-0">
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-1 bg-slate-800 rounded"></div>
+                            <span class="text-slate-600 font-medium">Historical</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-1 bg-brand-600 rounded" style="border-top: 2px dashed #2563eb; background: transparent;"></div>
+                            <span class="text-slate-600 font-medium">Forecast (yhat)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 bg-brand-100/60 rounded border border-brand-100"></div>
+                            <span class="text-slate-600 font-medium">Uncertainty</span>
+                        </div>
+                    </div>
+                    <button onclick="resetZoom()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold px-3 py-1.5 rounded-lg transition-colors border border-slate-200">
+                        Reset Zoom
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex-grow relative w-full h-full">
+                <canvas id="forecastChart"></canvas>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMsg" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"></div>
+        </div>
+        
+    </div>
+
+    <script>
+        let chartInstance = null;
+
+        async function fetchRealData(symbol, days) {
+            const res = await fetch(`http://127.0.0.1:8000/api/forecast?symbol=${symbol}&days=${days}`);
+            const data = await res.json();
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            return data;
+        }
+
+        async function renderChart(symbol, forecastDays) {
+            document.getElementById('chartTitle').innerText = `${symbol} Gerçek Veri & LSTM Tahmini (${forecastDays} Gün)`;
+            
+            const data = await fetchRealData(symbol, forecastDays);
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+
+            // Anlık fiyat badge'ini güncelle
+            if (data.realtimePrice) {
+                document.getElementById('realtimeBadge').classList.remove('hidden');
+                let badgeText = '$' + data.realtimePrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                if (data.todayForecast) {
+                    badgeText += ' | Tahmin: $' + data.todayForecast.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                }
+                document.getElementById('realtimeValue').textContent = badgeText;
+            }
+
+            // Son tarihsel veri noktasını (bugünkü anlık fiyat) yeşil ile vurgula
+            const histLen = data.historicalData.filter(v => v !== null).length;
+            const pointBackgroundColors = data.historicalData.map((v, i) => {
+                if (i === histLen - 1) return '#16a34a'; // yeşil - bugünkü anlık fiyat
+                return 'transparent';
+            });
+            const pointRadii = data.historicalData.map((v, i) => {
+                if (i === histLen - 1) return 6; // bugünkü fiyat için büyük nokta
+                return 0;
+            });
+            const pointBorderColors = data.historicalData.map((v, i) => {
+                if (i === histLen - 1) return '#15803d';
+                return 'transparent';
+            });
+
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Geçmiş (Gerçekleşen)',
+                            data: data.historicalData,
+                            borderColor: '#1e293b',
+                            borderWidth: 2,
+                            pointRadius: pointRadii,
+                            pointBackgroundColor: pointBackgroundColors,
+                            pointBorderColor: pointBorderColors,
+                            pointBorderWidth: 2,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Tahmin (LSTM)',
+                            data: data.forecastData,
+                            borderColor: '#2563eb',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Üst Sınır',
+                            data: data.upperData,
+                            borderColor: 'transparent',
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            label: 'Alt Sınır',
+                            data: data.lowerData,
+                            borderColor: 'transparent',
+                            backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                            pointRadius: 0,
+                            fill: '-1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const idx = tooltipItems[0].dataIndex;
+                                    const label = data.labels[idx];
+                                    if (idx === histLen - 1 && data.realtimePrice) {
+                                        return label + '  (Canli - Gun bitmedi)';
+                                    }
+                                    return label;
+                                },
+                                label: function(context) {
+                                    if (context.raw == null) return null;
+                                    const price = '$' + context.raw.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                    // Bugünkü anlık fiyat - gün bitmedi
+                                    if (context.datasetIndex === 0 && context.dataIndex === histLen - 1 && data.realtimePrice) {
+                                        return 'Anlik Fiyat (Canli): ' + price;
+                                    }
+                                    return `${context.dataset.label}: ${price}`;
+                                }
+                            }
+                        },
+                        zoom: {
+                            pan: { enabled: true, mode: 'x' },
+                            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxTicksLimit: 20,
+                                maxRotation: 45,
+                                font: { size: 10 }
+                            },
+                            grid: { display: false },
+                            // Son 60 gün + tahmin gün sayısı kadar göster
+                            min: data.labels[Math.max(0, histLen - 60)],
+                            max: data.labels[data.labels.length - 1]
+                        },
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                },
+                                font: { size: 11 }
+                            },
+                            grid: { color: '#f1f5f9' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function resetZoom() {
+            if (chartInstance) chartInstance.resetZoom();
+        }
+
+        async function runForecast() {
+            const btn = document.getElementById('generateBtn');
+            const errorDiv = document.getElementById('errorMsg');
+            const originalHTML = btn.innerHTML;
+
+            btn.innerHTML = `<svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Hesaplanıyor...`;
+            btn.disabled = true;
+            btn.classList.add('opacity-70', 'cursor-not-allowed');
+            errorDiv.classList.add('hidden');
+
+            const symbol = document.getElementById('assetSelect').value;
+            const days = parseInt(document.getElementById('forecastDays').value) || 30;
+
+            try {
+                await renderChart(symbol, days);
+            } catch (err) {
+                errorDiv.textContent = `Hata: ${err.message}. Sunucunun çalıştığından emin olun (uvicorn app:app --reload)`;
+                errorDiv.classList.remove('hidden');
+            } finally {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                btn.classList.remove('opacity-70', 'cursor-not-allowed');
+            }
+        }
+
+        window.onload = () => {
+            runForecast();
+        };
+    </script>
+</body>
+</html>
